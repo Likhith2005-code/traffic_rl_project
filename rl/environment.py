@@ -75,8 +75,9 @@ class TrafficEnvironment(gym.Env):
                 self.agent_id = "agent"
 
                 print("Agent Found!")
-                traci.vehicle.setColor(self.agent_id, (255, 0, 0, 255))
-                traci.gui.trackVehicle("View #0", self.agent_id)
+                if self.sumoBinary=="sumo-gui":
+                   traci.vehicle.setColor(self.agent_id, (255, 0, 0, 255))
+                   traci.gui.trackVehicle("View #0", self.agent_id)
 
                 observation = self.get_observation()
 

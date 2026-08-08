@@ -25,7 +25,7 @@ model = PPO(
 
 # Train
 model.learn(
-    total_timesteps=5000
+    total_timesteps=20000
 )
 
 # Save Model
