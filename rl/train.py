@@ -273,7 +273,7 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(description="Train 3 independent PPO agents in shared SUMO traffic.")
     parser.add_argument("--sumo-config", type=str, default="simulation/config.sumocfg")
     parser.add_argument("--gui", action="store_true", help="Run with sumo-gui instead of headless sumo.")
-    parser.add_argument("--timesteps", type=int, default=40_000, help="Total env timesteps per agent.")
+    parser.add_argument("--timesteps", type=int, default=30_000, help="Total env timesteps per agent.")
     parser.add_argument("--n-steps", type=int, default=1024, help="Rollout length before each PPO update.")
     parser.add_argument("--max-steps-per-episode", type=int, default=3000)
     parser.add_argument("--learning-rate", type=float, default=3e-4)

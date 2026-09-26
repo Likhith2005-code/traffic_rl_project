@@ -17,8 +17,6 @@ sumoCmd = [
     "sumo-gui",
     "-c",
     sumo_config,
-    "--start",
-    "--delay","300"
 
 ]
 

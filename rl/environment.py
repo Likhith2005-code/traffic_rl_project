@@ -479,23 +479,33 @@ class MultiAgentTrafficEnv(ParallelEnv):
         return np.clip(observation, OBS_LOW, OBS_HIGH)
 
     def _get_route_progress(self, aid):
-        """Approximate % of the assigned route the vehicle has completed."""
+        """Approximate % of the assigned route the vehicle has completed.
+
+        PERFORMANCE NOTE: the per-edge lengths of a route never change once
+        computed, so we cache a cumulative-distance prefix array per agent
+        the first time we see its route, instead of re-summing every edge
+        traveled-so-far on every single simulationStep() for every agent
+        (which was O(route_index) extra TraCI calls per agent per step).
+        """
         try:
             route = traci.vehicle.getRoute(aid)
             route_index = traci.vehicle.getRouteIndex(aid)
             lane_position = traci.vehicle.getLanePosition(aid)
 
-            if aid not in self._route_length_cache:
-                total_length = 0.0
+            cache_entry = self._route_length_cache.get(aid)
+            if cache_entry is None or cache_entry.get("route") != route:
+                cumulative = [0.0]
                 for edge in route:
-                    total_length += self._safe(lambda e=edge: traci.lane.getLength(e + "_0"), 0.0)
-                self._route_length_cache[aid] = max(total_length, 1.0)
-            total_length = self._route_length_cache[aid]
+                    edge_length = self._safe(lambda e=edge: traci.lane.getLength(e + "_0"), 0.0)
+                    cumulative.append(cumulative[-1] + edge_length)
+                total_length = max(cumulative[-1], 1.0)
+                cache_entry = {"route": route, "cumulative": cumulative, "total": total_length}
+                self._route_length_cache[aid] = cache_entry
 
-            traveled = 0.0
-            for edge in route[:route_index]:
-                traveled += self._safe(lambda e=edge: traci.lane.getLength(e + "_0"), 0.0)
-            traveled += lane_position
+            cumulative = cache_entry["cumulative"]
+            total_length = cache_entry["total"]
+            route_index = max(0, min(route_index, len(cumulative) - 1))
+            traveled = cumulative[route_index] + lane_position
 
             return float(np.clip((traveled / total_length) * 100.0, 0.0, 100.0))
         except traci.exceptions.TraCIException:
@@ -619,12 +629,43 @@ class MultiAgentTrafficEnv(ParallelEnv):
 
     def _configure_vehicle(self, aid):
         try:
-            # SpeedMode 32: obey safety constraints (no collisions) but allow
-            # the RL policy to freely set speed via setSpeed().
-            traci.vehicle.setSpeedMode(aid, 32)
-            # LaneChangeMode 256: disable SUMO's automatic lane changes so
-            # only our RL-issued changeLane() calls move the vehicle sideways.
-            traci.vehicle.setLaneChangeMode(aid, 256)
+            # SpeedMode 31 (0b0011111): regard safe following speed, regard
+            # max acceleration/deceleration, respect right-of-way at
+            # intersections, and brake to avoid running a red light - i.e.
+            # ALL of SUMO's built-in safety checks stay on. The RL policy is
+            # still free to call setSpeed(); SUMO will simply clip/refuse
+            # any request that would be unsafe instead of allowing it
+            # outright.
+            #
+            # NOTE: the previous value (32 = 0b0100000) sets ONLY the
+            # "disregard right-of-way within a junction" bit and leaves every
+            # other safety bit off. That silently disabled the safe-gap
+            # check, red-light compliance, and right-of-way checks - i.e.
+            # almost the OPPOSITE of "obey safety constraints" - which is
+            # what was producing emergency stops / collisions.
+            traci.vehicle.setSpeedMode(aid, 31)
+
+            # LaneChangeMode 257 (0b0100000001):
+            #   bits 0-1  = 01  -> allow STRATEGIC changes (the ones needed
+            #                      to reach a lane that actually connects to
+            #                      the next edge on the route) automatically
+            #   bits 2-3  = 00  -> no autonomous cooperative changes
+            #   bits 4-5  = 00  -> no autonomous speed-gain changes
+            #   bits 6-7  = 00  -> no autonomous "keep right" changes
+            #   bits 8-9  = 01  -> TraCI-requested changes (our RL
+            #                      CHANGE_LANE_LEFT/RIGHT/OVERTAKE actions)
+            #                      avoid immediate collisions
+            #
+            # The previous value (256 = 0b0100000000) left bits 0-1 at 00,
+            # which disables strategic changes entirely. With the RL agent's
+            # own lane-change actions also disabled (see _apply_action
+            # below), the vehicle could NEVER move to the lane required to
+            # continue onto the next edge - it would drive to the end of the
+            # lane, have no valid connection to follow, and emergency-stop /
+            # crash there. Keeping strategic changes on fixes that while
+            # still leaving tactical lane-change decisions (cooperative,
+            # speed-gain, overtaking) to the RL policy.
+            traci.vehicle.setLaneChangeMode(aid, 257)
             traci.vehicle.setColor(aid, self._agent_color(aid))
         except traci.exceptions.TraCIException:
             pass
