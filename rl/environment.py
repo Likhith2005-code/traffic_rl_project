@@ -602,7 +602,8 @@ class MultiAgentTrafficEnv(ParallelEnv):
             if aid in traci.vehicle.getIDList():
                 return
 
-            route_id = self.agent_route_map.get(aid)
+            available_routes=list(traci.route.getIDList())
+            route_id=random.choice(available_routes)
             available_routes = traci.route.getIDList()
             if route_id not in available_routes:
                 # The .rou.xml doesn't define a per-agent route: fall back to

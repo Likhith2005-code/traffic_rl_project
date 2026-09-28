@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traffic MARL Control Room</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div><h1>Traffic MARL Control Room</h1><small id="mode">connecting…</small></div>
+    </div>
+    <div class="controls">
+      <button id="btnPlay" class="btn primary">⏸ Pause</button>
+      <button id="btnReset" class="btn">↺ Reset</button>
+      <label>Speed
+        <select id="speed">
+          <option value="0.5">0.5×</option><option value="1" selected>1×</option>
+          <option value="2">2×</option><option value="5">5×</option><option value="0">Max</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="det" checked> Deterministic</label>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main>
+    <section class="card mapcard">
+      <div class="tabs" id="tabs"></div>
+      <div class="canvaswrap">
+        <canvas id="map"></canvas>
+        <div class="hud"><b id="hudName">agent1</b><span id="hudInfo"></span></div>
+      </div>
+      <div class="maptools">
+        <label class="chk"><input type="checkbox" id="follow" checked> Follow</label>
+        <label class="chk"><input type="checkbox" id="trail" checked> Trail</label>
+        <label class="zoom">Zoom <input type="range" id="zoom" min="0.3" max="8" step="0.1" value="2"></label>
+        <span id="stepInfo" class="muted"></span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <h2>Telemetry <span id="edge" class="muted"></span></h2>
+        <div id="tiles" class="tiles"></div>
+        <div class="prog"><span>Route progress</span><div class="bar"><i id="prog"></i></div><b id="progTxt">0%</b></div>
+      </div>
+      <div class="card">
+        <h2>Speed &amp; reward <span class="legend"><i class="l1"></i>speed <i class="l2"></i>reward</span></h2>
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="card">
+        <h2>All agents</h2>
+        <table id="board"></table>
+      </div>
+      <div class="card">
+        <h2>Event log</h2>
+        <ul id="log"></ul>
+      </div>
+    </aside>
+  </main>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
